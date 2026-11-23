@@ -1,7 +1,7 @@
 {
   "coordinator": "claude",
   "worker": "codex",
-  "workspace": "~",
+  "workspace": "~/.config/herdr-desk-dev/workspace",
   "output_token_watch": 25000,
   "accent": "#176657",
   "task_sections": [

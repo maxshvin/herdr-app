@@ -22,10 +22,10 @@ else:
     import telemetry
 
 HERE = Path(__file__).resolve().parent
-ROOT = Path.home() / "Library/Application Support/Team Desk"
-HC = str(Path.home() / ".local/bin/hc")
-HERDR = str(Path.home() / ".local/bin/herdr-app")
-APP_HOME = Path(os.environ.get("HERDR_APP_HOME") or Path.home() / ".config/herdr-app")
+APP_HOME = Path.home() / ".config/herdr-desk-dev"
+ROOT = APP_HOME / "tasks-state"
+HC = str(APP_HOME / "bin/hc")
+HERDR = str(APP_HOME / "bin/herdr-app")
 SHARED = APP_HOME / "shared.json"
 PROVIDERS = {"codex": ["codex", "--no-daemon"], "claude": ["claude"]}
 TICKET_REF = re.compile(
@@ -33,6 +33,14 @@ TICKET_REF = re.compile(
     re.IGNORECASE | re.ASCII,
 )
 os.umask(0o077)
+
+
+def in_dev_profile():
+    return (
+        os.environ.get("HERDR_APP_HOME") == str(APP_HOME)
+        and os.environ.get("HC_SESSION") == "desk-dev"
+        and os.environ.get("HC_SOCKET") == str(APP_HOME / "run/dev.sock")
+    )
 
 
 def read(path, fallback):
@@ -483,9 +491,10 @@ def preview(p):
 
 
 def limits(_):
-    usage = json.loads(
-        command([str(Path.home() / ".local/bin/claude-usage"), "--json"], timeout=65)
-    )
+    helper = APP_HOME / "bin/claude-usage"
+    if not helper.is_file():
+        return {"claude": [], "codex": []}
+    usage = json.loads(command([str(helper), "--json"], timeout=65))
     return {
         k: [
             (label, row.get("percent"))
@@ -597,6 +606,8 @@ def dispatch(action, p):
 
 if __name__ == "__main__":
     try:
+        if not in_dev_profile():
+            raise ValueError("Open Team Desk Dev to use its isolated agent core.")
         if sys.argv[1] == "board":
             ticket = sys.argv[2]
             with lock("board"):

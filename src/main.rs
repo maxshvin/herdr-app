@@ -93,7 +93,18 @@ fn link_check_path(args: &[String]) -> Option<&std::path::Path> {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     #[cfg(target_os = "macos")]
-    macos_check::startup(&args);
+    {
+        let action = args.get(1).map(String::as_str);
+        if matches!(action, None | Some("do" | "status" | "ls" | "feedback" | "shot"))
+            && (mods::app_dir() != mods::home().join(".config/herdr-desk-dev")
+                || std::env::var("HC_SESSION").as_deref() != Ok("desk-dev")
+                || std::env::var_os("HC_SOCKET").map(std::path::PathBuf::from) != Some(mods::app_dir().join("run/dev.sock")))
+        {
+            eprintln!("Open Team Desk Dev, or use ~/.config/herdr-desk-dev/bin/herdr-app for its CLI.");
+            std::process::exit(2);
+        }
+        macos_check::startup(&args);
+    }
     #[cfg(windows)]
     if args.len() > 1 {
         attach_console();

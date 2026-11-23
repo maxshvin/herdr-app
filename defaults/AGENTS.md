@@ -170,7 +170,7 @@ the highlighted line shows where it will land.
   `setAgentOrder(list.map(a => a.address))` on render so `agent.next` /
   `agent.prev` follow its list.
 
-Team Desk is the fork's macOS workspace for a coordinator and its workers. Switch with
+Team Desk Dev is the fork's separate macOS app, profile and agent core. Inside it, switch with
 `layout.switch {name: "team-desk"}`. Its native panel and Python runtime live in
 `mods/team-desk/`; user overrides belong in `team-desk.json` in this folder.
 

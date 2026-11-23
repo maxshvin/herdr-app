@@ -87,7 +87,7 @@ function titlebar(t) {
     .child(image("frame/welcome/herdr.png").size(17).rounded(4))
     .child(label("Herdr", 12, t.foreground).font_semibold())
     .child(label("/", 12, t.dim))
-    .child(label("Team Desk", 12, t.muted))
+    .child(label("Team Desk Dev", 12, t.muted))
     .child(div().flex_1())
     .child(
       h_flex()

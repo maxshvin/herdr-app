@@ -4,11 +4,11 @@ Herdr is a desktop app for terminals and coding agents. Keep work in spaces, see
 
 ## Team Desk fork
 
-On macOS, run `scripts/install-team-desk` from this checkout to install the native workspace into Herdr, then run `herdr-app do layout.switch '{"name":"team-desk"}'`. **Workspace** returns to your terminal layout. The fork also includes Team Desk in its source builds.
+On macOS, run `scripts/install-team-desk`, then open **Team Desk Dev** in your Applications folder. The installer packages a private copy of the installed renderer and core. Set `TEAM_DESK_RENDERER` to a fork-built executable to test Rust changes. Re-run the installer to refresh the native panel from your checkout.
 
-Paste a Linear issue link or ticket ID into the composer to delegate the usual brief, local work, and independent review. Select an agent for its plan, evidence, and conversation. JSON cases, PNGs, and diffs display in the workspace. Interactive HTML opens in a sandboxed browser preview.
+The development app has its own profile at `~/.config/herdr-desk-dev`, its own `desk-dev` core and socket, and an empty work folder under that profile. Its terminal list, provider configuration, and task history start empty. The development CLI is `~/.config/herdr-desk-dev/bin/herdr-app`. Use development checkouts in the profile’s `team-desk.json`. Configure provider sign-in and hooks inside the private provider directories; the bundled turn-end and prompt hook is `mods/team-desk/runtime/hook.py` under the profile. The installer leaves your normal Herdr and standalone Team Desk installations alone.
 
-The local runtime uses Python 3, `hc`, and your installed Claude Code or Codex CLI. The cached Linear board supplies ticket titles; `claude-usage` supplies account limits. Existing Desk transcript hooks work with the fork. For a fresh setup, register `/usr/bin/python3 -B "$HOME/.config/herdr-app/mods/team-desk/runtime/hook.py"` as a Stop and UserPromptSubmit command hook in the providers you use. It records replies and session IDs for Team Desk workers and the coordinator. Set `workspace` to your work folder in `~/.config/herdr-app/team-desk.json` to override the bundled settings.
+Paste a Linear issue link or ticket ID into the composer to delegate a brief, local work, and independent review. Select a worker for its plan, evidence, and conversation. Ticket titles use the development profile’s board cache. Optional account limits use an executable named `bin/claude-usage` inside the development profile.
 
 ## Install
 

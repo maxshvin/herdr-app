@@ -1,26 +1,142 @@
-#!/bin/sh
-# Install the fork's native workspace on an existing macOS Herdr installation.
-set -eu
-root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-app_home=${HERDR_APP_HOME:-"$HOME/.config/herdr-app"}
-panel="$app_home/mods/team-desk"
-mkdir -p "$panel/runtime" "$app_home/layouts"
-for file in settings.json telemetry.py hook.py coordinator.txt worker.txt team.py; do
-  install -m 644 "$root/defaults/mods/team-desk/runtime/$file" "$panel/runtime/$file"
-done
-for file in main.js mod.json; do
-  install -m 644 "$root/defaults/mods/team-desk/$file" "$panel/$file"
-done
-install -m 644 "$root/defaults/layouts/team-desk.json" "$app_home/layouts/team-desk.json"
-herdr-app check "$panel"
-# Preserve a Team Desk Dock shortcut from the standalone macOS application.
-launcher="$HOME/Applications/Team Desk.app"
-if [ "$(uname)" = Darwin ] && [ -f "$launcher/Contents/Info.plist" ] &&
-   [ "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$launcher/Contents/Info.plist")" = local.herdrdesk.team ]; then
-  tempdir=$(mktemp -d)
-  trap 'rm -rf "$tempdir"' EXIT
-  swiftc "$root/scripts/team-desk-launch.swift" -o "$tempdir/TeamDesk"
-  install -m 755 "$tempdir/TeamDesk" "$launcher/Contents/MacOS/TeamDesk.new"
-  mv "$launcher/Contents/MacOS/TeamDesk.new" "$launcher/Contents/MacOS/TeamDesk"
-  codesign --force --sign - "$launcher"
-fi
+#!/usr/bin/env python3
+"""Install Team Desk Dev into its own macOS bundle and profile."""
+
+import json
+import os
+import plistlib
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+root = Path(__file__).resolve().parents[1]
+profile = Path.home() / ".config/herdr-desk-dev"
+apps = Path.home() / "Applications"
+bundle = apps / "Team Desk Dev.app"
+bundle_id = "local.herdrdesk.team.dev"
+
+
+def install():
+    if sys.platform != "darwin":
+        sys.exit("Team Desk Dev requires macOS.")
+    if profile.resolve() != profile or bundle.resolve() != bundle:
+        sys.exit("The development profile and bundle must be dedicated directories.")
+    if bundle.exists():
+        with (bundle / "Contents/Info.plist").open("rb") as stream:
+            if plistlib.load(stream).get("CFBundleIdentifier") != bundle_id:
+                sys.exit("Another application owns the development bundle path.")
+    renderer = os.getenv("TEAM_DESK_RENDERER") or shutil.which("herdr-app")
+    core = os.getenv("TEAM_DESK_CORE") or shutil.which("hc")
+    if not renderer or not core:
+        sys.exit(
+            "Put herdr-app and hc on PATH or set TEAM_DESK_RENDERER and TEAM_DESK_CORE."
+        )
+    if Path(renderer).resolve() == (bundle / "Contents/MacOS/TeamDeskDev"):
+        renderer = bundle / "Contents/MacOS/Renderer"
+    if Path(core).resolve() == profile / "bin/hc" and (profile / "libexec/hc").exists():
+        core = profile / "libexec/hc"
+    os.umask(0o077)
+    apps.mkdir(exist_ok=True)
+    for directory in (
+        "layouts",
+        "mods/team-desk/runtime",
+        "config",
+        "state",
+        "run",
+        "bin",
+        "libexec",
+        "workspace",
+        "providers/codex",
+        "providers/claude",
+    ):
+        path = profile / directory
+        if path.resolve() != path:
+            sys.exit(f"Unexpected link in the development profile: {path}")
+        path.mkdir(parents=True, exist_ok=True)
+    for name, obj in {
+        "shared.json": {"layout": "team-desk"},
+        "settings.json": {"core": str(profile / "bin/hc"), "telemetry": False},
+        "team-desk.json": {"workspace": str(profile / "workspace")},
+    }.items():
+        dest = profile / name
+        if not dest.exists():
+            with dest.open("x") as stream:
+                json.dump(obj, stream)
+    with tempfile.TemporaryDirectory(dir=apps) as temp:
+        stage = Path(temp) / bundle.name
+        contents = stage / "Contents"
+        binaries = contents / "MacOS"
+        binaries.mkdir(parents=True)
+        shutil.copy2(renderer, binaries / "Renderer")
+        subprocess.run(
+            ["codesign", "--force", "--sign", "-", binaries / "Renderer"], check=True
+        )
+        subprocess.run(
+            [
+                "swiftc",
+                root / "scripts/team-desk-launch.swift",
+                "-o",
+                binaries / "TeamDeskDev",
+            ],
+            check=True,
+        )
+        info = {
+            "CFBundleIdentifier": bundle_id,
+            "CFBundleName": "Team Desk Dev",
+            "CFBundleDisplayName": "Team Desk Dev",
+            "CFBundleExecutable": "TeamDeskDev",
+            "CFBundlePackageType": "APPL",
+            "CFBundleVersion": "1",
+            "NSHighResolutionCapable": True,
+        }
+        with (contents / "Info.plist").open("wb") as stream:
+            plistlib.dump(info, stream)
+        subprocess.run(["codesign", "--force", "--sign", "-", stage], check=True)
+        subprocess.run(["codesign", "--verify", "--strict", stage], check=True)
+        core_launcher = Path(temp) / "hc"
+        core_launcher.write_text(
+            '#!/bin/sh\nexec "$HOME/Applications/Team Desk Dev.app/Contents/MacOS/TeamDeskDev" --dev-core "$@"\n'
+        )
+        core_launcher.chmod(0o700)
+        files = [
+            (
+                root / "defaults/layouts/team-desk.json",
+                profile / "layouts/team-desk.json",
+            ),
+            (Path(core), profile / "libexec/hc"),
+            (core_launcher, profile / "bin/hc"),
+        ]
+        panel = root / "defaults/mods/team-desk"
+        files.extend(
+            (p, profile / "mods/team-desk" / p.relative_to(panel))
+            for p in panel.rglob("*")
+            if p.is_file()
+            and p.suffix in {".js", ".py", ".txt", ".json"}
+            and p.name != "jsconfig.json"
+        )
+        for src, dest in files:
+            with tempfile.TemporaryDirectory(dir=dest.parent) as tmp:
+                copy = Path(tmp) / dest.name
+                shutil.copy2(src, copy)
+                os.replace(copy, dest)
+        old = Path(temp) / "previous.app"
+        if bundle.exists():
+            bundle.rename(old)
+        try:
+            stage.rename(bundle)
+        except OSError:
+            if old.exists():
+                old.rename(bundle)
+            raise
+    cli = profile / "bin/herdr-app"
+    if cli.is_symlink():
+        cli.unlink()
+    if not cli.exists():
+        cli.symlink_to(bundle / "Contents/MacOS/TeamDeskDev")
+    subprocess.run([cli, "check", profile / "mods/team-desk"], check=True)
+    print(bundle)
+
+
+if __name__ == "__main__":
+    install()

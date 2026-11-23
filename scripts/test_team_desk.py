@@ -74,6 +74,26 @@ class DeskTest(unittest.TestCase):
             return json.dumps({"outcome": "stopped"})
         self.fail("Unexpected external action: " + action)
 
+    def test_commands_require_a_matching_private_core_and_window(self):
+        private = {
+            "HERDR_APP_HOME": str(team.APP_HOME),
+            "HC_SESSION": "desk-dev",
+            "HC_SOCKET": str(team.APP_HOME / "run/dev.sock"),
+        }
+        with patch.dict(os.environ, private):
+            self.assertTrue(team.in_dev_profile())
+            for key in private:
+                with patch.dict(os.environ, {key: "from-working-herdr"}):
+                    self.assertFalse(team.in_dev_profile())
+        result = subprocess.run(
+            [sys.executable, "-B", team.HERE / "team.py", "ui", "tickets", "{}"],
+            env={},
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("isolated agent core", result.stderr)
+
     def test_delegate_review_and_reconnect(self):
         master = team.launch("coordinator", "Help manage the team")["id"]
         team.launch("coordinator", "What is blocked?")
@@ -157,7 +177,9 @@ class DeskTest(unittest.TestCase):
             self.assertIn("&lt;button&gt;", wrapper)
             self.assertNotIn("allow-same-origin", wrapper)
 
-    @unittest.skipUnless(shutil.which("herdr-app"), "requires Herdr's native renderer")
+    @unittest.skipUnless(
+        Path(team.HERDR).is_file(), "requires the Team Desk Dev renderer"
+    )
     def test_workspace_views_render(self):
         mod = self.root / "render"
         mod.mkdir()
@@ -216,7 +238,7 @@ export default class Scenario extends Desk {
                     .replace("PREVIEW", json.dumps(preview))
                 )
                 result = subprocess.run(
-                    ["herdr-app", "check", str(mod)], capture_output=True, text=True
+                    [team.HERDR, "check", str(mod)], capture_output=True, text=True
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertNotIn("mod exec'd", result.stderr)

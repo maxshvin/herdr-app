@@ -45,7 +45,7 @@ def final_text(event):
 
 
 def capture(event, address):
-    if not address or event.get("agent_id"):
+    if not team.in_dev_profile() or not address or event.get("agent_id"):
         return
     terminal = team.get(address)
     if not terminal.get("labels", {}).get("team.role"):

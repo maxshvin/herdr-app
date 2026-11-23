@@ -1,43 +1,28 @@
-// The existing Team Desk Dock item opens the native workspace in Herdr.
-import AppKit
+// Finder and CLI launches use the same private app profile and core.
+import Foundation
+import Darwin
 
-let bundle = "dev.herdr.app"
-let cli = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".local/bin/herdr-app")
-func selectTeamDesk() -> Bool {
-    let process = Process()
-    process.executableURL = cli
-    process.arguments = ["do", "layout.switch", "{\"name\":\"team-desk\"}"]
-    process.standardOutput = FileHandle.nullDevice
-    process.standardError = FileHandle.nullDevice
-    do { try process.run() } catch { return false }
-    process.waitUntilExit()
-    return process.terminationStatus == 0
+let profile = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".config/herdr-desk-dev")
+let root = profile.path
+let bundle = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/Team Desk Dev.app")
+let core = CommandLine.arguments.dropFirst().first == "--dev-core"
+let executable = core ? root + "/libexec/hc" : bundle.appendingPathComponent("Contents/MacOS/Renderer").path
+let env = ProcessInfo.processInfo.environment
+let privateCaller = env["HC_SOCKET"] == root + "/run/dev.sock" && env["HC_SESSION"] == "desk-dev"
+for key in env.keys where key.hasPrefix("HC_") && !privateCaller {
+    unsetenv(key)
 }
-
-func showError(_ message: String) -> Never {
-    let alert = NSAlert()
-    alert.messageText = "Could not open Team Desk"
-    alert.informativeText = message
-    alert.runModal()
-    exit(1)
+let isolated = [
+    "HERDR_APP_HOME": root, "HC_SESSION": "desk-dev", "HC_SOCKET": root + "/run/dev.sock",
+    "XDG_RUNTIME_DIR": root + "/run", "XDG_STATE_HOME": root + "/state", "XDG_CONFIG_HOME": root + "/config",
+    "HERDR_CORE_DIRS": root + "/bin", "HERDR_RELEASES_URL": "file:///dev/null",
+    "CLAUDE_CONFIG_DIR": root + "/providers/claude", "CODEX_HOME": root + "/providers/codex",
+    "PATH": root + "/bin:" + (getenv("PATH").map { String(cString: $0) } ?? "/usr/bin:/bin")
+]
+for (key, value) in isolated { setenv(key, value, 1) }
+let arguments = ([executable] + CommandLine.arguments.dropFirst(core ? 2 : 1)).map { strdup($0) } + [nil]
+arguments.withUnsafeBufferPointer { buffer in
+    _ = execv(executable, buffer.baseAddress!)
 }
-
-guard FileManager.default.isExecutableFile(atPath: cli.path) else {
-    showError("Install the Herdr command-line tool in ~/.local/bin.")
-}
-if NSRunningApplication.runningApplications(withBundleIdentifier: bundle).isEmpty {
-    guard let app = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundle) else {
-        showError("Install Herdr.app and open it once.")
-    }
-    NSWorkspace.shared.openApplication(at: app, configuration: .init()) { _, error in
-        if let error { showError(error.localizedDescription) }
-    }
-}
-for _ in 0..<30 {
-    if selectTeamDesk() {
-        NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first?.activate(options: [])
-        exit(0)
-    }
-    RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.25))
-}
-showError("Check that Herdr is running and scripts/install-team-desk has installed the layout.")
+perror("Team Desk Dev renderer")
+exit(1)

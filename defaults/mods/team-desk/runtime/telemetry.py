@@ -10,11 +10,11 @@ def locate(session, provider, paths):
         return None
     if session in paths:
         return paths[session]
-    home = Path.home()
+    providers = Path.home() / ".config/herdr-desk-dev/providers"
     if provider == "claude":
-        root, pattern = home / ".claude/projects", "*/*.jsonl"
+        root, pattern = providers / "claude/projects", "*/*.jsonl"
     elif provider == "codex":
-        root, pattern = home / ".codex/sessions", "*/*/*/*.jsonl"
+        root, pattern = providers / "codex/sessions", "*/*/*/*.jsonl"
     else:
         return None
     marker = ("indexed", provider)
