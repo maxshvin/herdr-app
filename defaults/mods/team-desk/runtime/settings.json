@@ -1,0 +1,13 @@
+{
+  "coordinator": "claude",
+  "worker": "codex",
+  "workspace": "~",
+  "output_token_watch": 25000,
+  "accent": "#176657",
+  "task_sections": [
+    "brief",
+    "plan",
+    "evidence",
+    "review"
+  ]
+}

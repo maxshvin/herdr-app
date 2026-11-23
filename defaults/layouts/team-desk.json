@@ -1,0 +1,17 @@
+{
+  "id": "root",
+  "type": "column",
+  "titlebar": "none",
+  "traffic_lights": [12, 12],
+  "background": "background",
+  "children": [
+    {
+      "type": "block",
+      "id": "team-title",
+      "size": {"px": 38},
+      "window_drag": true,
+      "content": {"mod": "team-desk", "props": {"role": "title"}}
+    },
+    {"type": "block", "id": "team-workspace", "content": {"mod": "team-desk"}}
+  ]
+}

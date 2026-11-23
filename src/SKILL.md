@@ -6,6 +6,9 @@ what the person sees. For starting, reading, messaging, waiting on or cleaning
 up agents and programs, read `hc --skill` and use hc.
 Your terminal address is `$HC_TERMINAL_ID`; it is not a pane ID.
 
+On this fork, `herdr-app do layout.switch '{"name":"team-desk"}'` shows the local
+team workspace on macOS. A bare Linear ticket opens its linked worker or starts one.
+
 ## Inspect before acting
 
 ```sh

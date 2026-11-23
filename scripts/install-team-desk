@@ -1,0 +1,26 @@
+#!/bin/sh
+# Install the fork's native workspace on an existing macOS Herdr installation.
+set -eu
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+app_home=${HERDR_APP_HOME:-"$HOME/.config/herdr-app"}
+panel="$app_home/mods/team-desk"
+mkdir -p "$panel/runtime" "$app_home/layouts"
+for file in settings.json telemetry.py hook.py coordinator.txt worker.txt team.py; do
+  install -m 644 "$root/defaults/mods/team-desk/runtime/$file" "$panel/runtime/$file"
+done
+for file in main.js mod.json; do
+  install -m 644 "$root/defaults/mods/team-desk/$file" "$panel/$file"
+done
+install -m 644 "$root/defaults/layouts/team-desk.json" "$app_home/layouts/team-desk.json"
+herdr-app check "$panel"
+# Preserve a Team Desk Dock shortcut from the standalone macOS application.
+launcher="$HOME/Applications/Team Desk.app"
+if [ "$(uname)" = Darwin ] && [ -f "$launcher/Contents/Info.plist" ] &&
+   [ "$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$launcher/Contents/Info.plist")" = local.herdrdesk.team ]; then
+  tempdir=$(mktemp -d)
+  trap 'rm -rf "$tempdir"' EXIT
+  swiftc "$root/scripts/team-desk-launch.swift" -o "$tempdir/TeamDesk"
+  install -m 755 "$tempdir/TeamDesk" "$launcher/Contents/MacOS/TeamDesk.new"
+  mv "$launcher/Contents/MacOS/TeamDesk.new" "$launcher/Contents/MacOS/TeamDesk"
+  codesign --force --sign - "$launcher"
+fi

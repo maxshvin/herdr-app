@@ -2,6 +2,14 @@
 
 Herdr is a desktop app for terminals and coding agents. Keep work in spaces, see which agents need you, and leave terminals running when you close the window.
 
+## Team Desk fork
+
+On macOS, run `scripts/install-team-desk` from this checkout to install the native workspace into Herdr, then run `herdr-app do layout.switch '{"name":"team-desk"}'`. **Workspace** returns to your terminal layout. The fork also includes Team Desk in its source builds.
+
+Paste a Linear issue link or ticket ID into the composer to delegate the usual brief, local work, and independent review. Select an agent for its plan, evidence, and conversation. JSON cases, PNGs, and diffs display in the workspace. Interactive HTML opens in a sandboxed browser preview.
+
+The local runtime uses Python 3, `hc`, and your installed Claude Code or Codex CLI. The cached Linear board supplies ticket titles; `claude-usage` supplies account limits. Existing Desk transcript hooks work with the fork. For a fresh setup, register `/usr/bin/python3 -B "$HOME/.config/herdr-app/mods/team-desk/runtime/hook.py"` as a Stop and UserPromptSubmit command hook in the providers you use. It records replies and session IDs for Team Desk workers and the coordinator. Set `workspace` to your work folder in `~/.config/herdr-app/team-desk.json` to override the bundled settings.
+
 ## Install
 
 ### Linux and macOS
